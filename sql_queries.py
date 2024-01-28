@@ -58,7 +58,7 @@ CREATE TABLE song_data (
 
 songplay_table_create = ("""
 CREATE TABLE fact_songplays (
-    songplay_id INT DISTKEY, 
+    songplay_id VARCHAR(255) DISTKEY, 
     start_time BIGINT, 
     user_id VARCHAR(255), 
     level VARCHAR(255), 
@@ -91,7 +91,7 @@ CREATE TABLE dim_songs (
 """)
 
 artist_table_create = ("""
-CREATE TABLE dev.star.dim_artists (
+CREATE TABLE dim_artists (
     artist_id VARCHAR(255) DISTKEY,
     name VARCHAR(255),
     location VARCHAR(255),
@@ -101,7 +101,7 @@ CREATE TABLE dev.star.dim_artists (
 """)
 
 time_table_create = ("""
-CREATE TABLE dev.star.dim_time (
+CREATE TABLE dim_time (
     start_time NUMERIC,
     hour INT,
     day INT,
@@ -115,16 +115,43 @@ CREATE TABLE dev.star.dim_time (
 # STAGING TABLES
 
 staging_events_copy = ("""
-COPY dev.song_data FROM 's3://udacity-nanodegree-darius-us-east-2/events.json' FORMAT JSON 'auto' REGION 'us-west-2';
+COPY song_data FROM 's3://udacity-nanodegree-darius-us-west-2/events.json' iam_role '$iam' 
+FORMAT JSON 'auto' 
+REGION 'us-west-2';
 """).format()
 
 staging_songs_copy = ("""
-COPY song_data FROM 's3://udacity-nanodegree-darius-us-east-2/songs.json' FORMAT JSON 'auto' REGION 'us-west-2';
+COPY song_data FROM 's3://udacity-nanodegree-darius-us-west-2/songs.json' iam_role '$iam' 
+FORMAT JSON 'auto' 
+REGION 'us-west-2';
 """).format()
 
 # FINAL TABLES
 
 songplay_table_insert = ("""
+INSERT INTO fact_songsplays (
+    songplay_id,
+    start_time,
+    user_id,
+    level,
+    song_id,
+    artist_id,
+    session_id,
+    location,
+    user_agent
+)
+SELECT
+  CONCAT(user_id, TO_CHAR(log_data.ts :: DATE, 'yyyyMMDDHHSS')) as songplay_id,
+  log_data.ts AS start_time,
+  log_data.userid AS user_id,
+  log_data.level AS level,
+  log_data.song_id AS song_id,
+  log_data.artist_id AS artist_id,
+  song_data.sessionid AS session_id,
+  log_data.location AS location,
+  log_data.useragent AS user_agent
+JOIN song_data ON (song_data.artist_name = log_data.artist) AND (song_data.song_name = log_data.song)                                      
+FROM log_data, song_data
 """)
 
 user_table_insert = ("""
@@ -148,7 +175,7 @@ SELECT
   song_data.artist_id AS artist_id,
   song_data."year" AS "year",
   song_data.duration AS duration 
-FROM dev.staging.song_data;
+FROM song_data;
 """)
 
 artist_table_insert = ("""

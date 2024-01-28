@@ -56,6 +56,7 @@ DWH_CLUSTER_IDENTIFIER = "dwhCluster"
 
 # Are set automatically via script
 DWH_ENDPOINT = ""
+DWH_ROLE_ARN = ""
 
 ec2 = boto3.resource('ec2',
                      region_name=REGION_NAME,
@@ -148,14 +149,21 @@ for i in range(10):
         if not cluster_created:
             time.sleep(60)
 
-print("")
-
 print("Updating dwh.cfg")
+old_password = ""
+if config.get("CLUSTER", "DB_PASSWORD") is not None:
+    old_password = config.get("CLUSTER", "DB_PASSWORD")
 config.remove_section("CLUSTER")
 config.add_section("CLUSTER")
 config.set("CLUSTER", "HOST", DWH_ENDPOINT)
 config.set("CLUSTER", "DB_NAME", DWH_DB)
 config.set("CLUSTER", "DB_USER", DWH_DB_USER)
+config.set("CLUSTER", "ROLE_S3_READ", roleArn)
+
 if new_cluster:
     config.set("CLUSTER", "DB_PASSWORD", DWH_DB_PASSWORD)
+else:
+    config.set("CLUSTER", "DB_PASSWORD", old_password)
 config.set("CLUSTER", "DB_PORT", str(DWH_PORT))
+with open('dwh.cfg', 'w') as configfile:
+    config.write(configfile)
