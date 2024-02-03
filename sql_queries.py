@@ -23,8 +23,8 @@ CREATE TABLE log_data (
     auth VARCHAR(255),
     firstName VARCHAR(255),
     gender CHAR(1),
-    itemInSession INT,
-    lastName VARCHAR(255),
+    iteminsession INT,
+    lastname VARCHAR(255),
     length NUMERIC,
     level VARCHAR(255),
     location VARCHAR(255),
@@ -35,8 +35,8 @@ CREATE TABLE log_data (
     song VARCHAR(255),
     status INT,
     ts BIGINT,
-    userAgent VARCHAR(255),
-    userId VARCHAR(255)
+    useragent VARCHAR(255),
+    userid VARCHAR(255)
 );
 """)
 
@@ -72,7 +72,7 @@ CREATE TABLE fact_songplays (
 
 user_table_create = ("""
 CREATE TABLE dim_users (
-    user_id INT DISTKEY,
+    user_id VARCHAR(255) DISTKEY,
     first_name VARCHAR(255),
     last_name VARCHAR(255),
     gender CHAR(1),
@@ -160,13 +160,13 @@ WHERE (song_data.title = log_data.song AND song_data.artist_name = log_data.arti
 user_table_insert = ("""
 INSERT INTO dim_users (user_id, first_name, last_name, gender, level) 
 SELECT 
-  log_data.userId::integer AS user_id,
+  log_data.userid AS user_id,
   log_data.firstName AS first_name,
-  log_data.lastName AS last_name,
+  log_data.lastname AS last_name,
   log_data.gender AS gender,
   log_data.level AS level 
 FROM log_data 
-WHERE log_data.userId is not null AND log_data.page = 'NextPage';
+WHERE log_data.userid is not null AND log_data.page = 'NextPage';
 
 """)
 

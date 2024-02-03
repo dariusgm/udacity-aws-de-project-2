@@ -64,3 +64,10 @@ python3 etl.py
 ```
 
 # Quality Checks
+Here we will take a look at several aspects of the data quality.
+I don't add this script to the pipeline directly,
+as this are run one time but can be easy adopted given the other existing code.
+```shell
+python3 data_quality.py
+```
+
