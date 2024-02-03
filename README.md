@@ -30,6 +30,7 @@ python3 combine.py
 ```
 
 This will create two files that you can use now to upload into a s3 bucket.
+Also copy the `log_json_path.json` to your bucket.
 Ensure that you select the same region as your redshift cluster, by default in `us-west-2`.
 Create a `dwh.cfg` file where you provide the aws keys and the location of your just created small files:
 
@@ -39,6 +40,7 @@ echo "KEY=<KEY>" >> dwh.cfg
 echo "SECRET=<SECRET>" >> dwh.cfg
 echo "LOG_DATA=s3://<LOG_DATA_PATH>/events.json" >> dwh.cfg
 echo "SONG_DATA=s3://<SONG_DATA_PATH>/songs.json" >> dwh.cfg
+echo "LOG_SCHEMA_PATH=s3://<LOG_JSONPATH>/log_json_path.json" >> dwh.cfg
 ```
 
 

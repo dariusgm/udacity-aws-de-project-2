@@ -116,7 +116,7 @@ CREATE TABLE dim_time (
 
 staging_events_copy = ("""
 COPY log_data FROM '$events' iam_role '$iam' 
-FORMAT JSON 'auto' 
+FORMAT JSON '$event_schema' 
 REGION 'us-west-2';
 """).format()
 
@@ -140,8 +140,7 @@ INSERT INTO fact_songplays (
     location,
     user_agent
 )
-SELECT
-  (TO_CHAR(
+SELECT (TO_CHAR(
         DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE), 'YYYY-MM-DD HH24:MI:SS'
     ) || '-' || log_data.userid || '-' || song_data.song_id)::text AS songplay_id,
   DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE) AS start_time,
@@ -161,12 +160,14 @@ user_table_insert = ("""
 INSERT INTO dim_users (user_id, first_name, last_name, gender, level) 
 SELECT 
   log_data.userid AS user_id,
-  log_data.firstName AS first_name,
+  log_data.firstname AS first_name,
   log_data.lastname AS last_name,
   log_data.gender AS gender,
   log_data.level AS level 
 FROM log_data 
-WHERE log_data.userid is not null AND log_data.page = 'NextPage';
+WHERE log_data.userid is not null 
+  AND log_data.page = 'NextSong' 
+  AND log_data.status = 200;
 
 """)
 
