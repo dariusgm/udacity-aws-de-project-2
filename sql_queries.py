@@ -59,7 +59,7 @@ CREATE TABLE song_data (
 songplay_table_create = ("""
 CREATE TABLE fact_songplays (
     songplay_id VARCHAR(255) DISTKEY, 
-    start_time BIGINT, 
+    start_time DATE, 
     user_id VARCHAR(255), 
     level VARCHAR(255), 
     song_id VARCHAR(255), 
@@ -102,7 +102,7 @@ CREATE TABLE dim_artists (
 
 time_table_create = ("""
 CREATE TABLE dim_time (
-    start_time NUMERIC,
+    start_time DATE,
     hour INT,
     day INT,
     week INT,
@@ -115,13 +115,13 @@ CREATE TABLE dim_time (
 # STAGING TABLES
 
 staging_events_copy = ("""
-COPY song_data FROM 's3://udacity-nanodegree-darius-us-west-2/events.json' iam_role '$iam' 
+COPY log_data FROM '$events' iam_role '$iam' 
 FORMAT JSON 'auto' 
 REGION 'us-west-2';
 """).format()
 
 staging_songs_copy = ("""
-COPY song_data FROM 's3://udacity-nanodegree-darius-us-west-2/songs.json' iam_role '$iam' 
+COPY song_data FROM '$songs' iam_role '$iam' 
 FORMAT JSON 'auto' 
 REGION 'us-west-2';
 """).format()
@@ -129,7 +129,7 @@ REGION 'us-west-2';
 # FINAL TABLES
 
 songplay_table_insert = ("""
-INSERT INTO fact_songsplays (
+INSERT INTO fact_songplays (
     songplay_id,
     start_time,
     user_id,
@@ -141,17 +141,20 @@ INSERT INTO fact_songsplays (
     user_agent
 )
 SELECT
-  CONCAT(user_id, TO_CHAR(log_data.ts :: DATE, 'yyyyMMDDHHSS')) as songplay_id,
-  log_data.ts AS start_time,
+  (TO_CHAR(
+        DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE), 'YYYY-MM-DD HH24:MI:SS'
+    ) || '-' || log_data.userid || '-' || song_data.song_id)::text AS songplay_id,
+  DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE) AS start_time,
   log_data.userid AS user_id,
   log_data.level AS level,
-  log_data.song_id AS song_id,
-  log_data.artist_id AS artist_id,
-  song_data.sessionid AS session_id,
-  log_data.location AS location,
+  song_data.song_id AS song_id,
+  song_data.artist_id AS artist_id,
+  log_data.sessionid AS session_id,
+  log_data.location AS "location",
   log_data.useragent AS user_agent
-JOIN song_data ON (song_data.artist_name = log_data.artist) AND (song_data.song_name = log_data.song)                                      
 FROM log_data, song_data
+WHERE (song_data.title = log_data.song AND song_data.artist_name = log_data.artist);
+
 """)
 
 user_table_insert = ("""
@@ -192,7 +195,7 @@ FROM song_data;
 time_table_insert = ("""
 INSERT INTO dim_time (start_time, hour ,day, week, month, year, weekday) 
 SELECT 
-  log_data.ts AS start_time, 
+  DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE) AS start_time, 
   EXTRACT(HOUR FROM DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE)) AS hour,
   EXTRACT(DAY FROM DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE)) AS day,
   EXTRACT(WEEK FROM DATEADD(SECOND, log_data.ts / 1000, '1970-01-01'::DATE)) AS week,

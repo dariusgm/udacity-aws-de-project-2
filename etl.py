@@ -3,10 +3,15 @@ import psycopg2
 from sql_queries import copy_table_queries, insert_table_queries
 
 
-def load_staging_tables(cur, conn, role_s3_read):
+def load_staging_tables(cur, conn, role_s3_read, event_path, songs_path):
     for query in copy_table_queries:
         if "$iam" in query:
-            query.replace("$iam", role_s3_read)
+            query = query.replace("$iam", role_s3_read)
+        if "$events" in query:
+            query = query.replace("$events", event_path)
+        if "$songs" in query:
+            query = query.replace("$songs", songs_path)
+        print(query)
         cur.execute(query)
         conn.commit()
 
@@ -28,11 +33,14 @@ def main():
     db_password = config.get("CLUSTER", "db_password")
     db_port = config.get("CLUSTER", "db_port")
     role_s3_read = config.get("CLUSTER", "role_s3_read")
+    event_path = config.get("AWS", "log_data")
+    song_path = config.get("AWS", "song_data")
+
 
     conn = psycopg2.connect(f"host={host} dbname={db_name} user={db_user} password={db_password} port={db_port}")
     cur = conn.cursor()
 
-    load_staging_tables(cur, conn, role_s3_read)
+    load_staging_tables(cur, conn, role_s3_read, event_path, song_path)
     insert_tables(cur, conn)
 
     conn.close()
