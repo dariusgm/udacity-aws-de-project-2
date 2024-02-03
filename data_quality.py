@@ -1,6 +1,8 @@
 # Shared function that are used for all tables
 import sys
 from typing import List
+import configparser
+import psycopg2
 
 def fetch_meta_data() -> str:
     """
@@ -12,6 +14,7 @@ def fetch_meta_data() -> str:
     SELECT table_name, column_name FROM information_schema.columns where table_catalog = 'dwh' and table_schema = 'public' 
     """
 
+
 def count_check(table: str) -> str:
     """
     :argument table: The table to check
@@ -22,17 +25,16 @@ def count_check(table: str) -> str:
 
 def null_check(table: str, column: str):
     """
-
+    Stack overflow helped here: https://stackoverflow.com/questions/239545/how-do-i-return-my-records-grouped-by-null-and-not-null
     :param table: The table to check
     :param column: The column to check
     :return: Ready to use query
     """
     return f"""
-    SELECT {column}, COUNT(*) AS null_count
+    SELECT
+    COUNT(CASE WHEN {column} IS NULL THEN 1 ELSE NULL END) AS null_count,
+    COUNT(CASE WHEN {column} IS NOT NULL THEN 1 ELSE NULL END) AS non_null_count
     FROM {table}
-    WHERE {column} IS NULL
-    GROUP BY {column}
-    ORDER BY null_count DESC;
     """
 
 
@@ -97,27 +99,7 @@ def distribution_check(table: str, column: str) -> str:
 
 
 
-import configparser
-import psycopg2
-from sql_queries import create_table_queries, drop_table_queries
 
-
-def drop_tables(cur, conn):
-    for query in drop_table_queries:
-        print(query)
-        cur.execute(query)
-        conn.commit()
-
-
-def create_tables(cur, conn):
-    for query in create_table_queries:
-        print(query)
-        cur.execute(query)
-        conn.commit()
-
-
-def print_db_result(db_data: tuple):
-    print(db_data)
 
 def main():
     config = configparser.ConfigParser()
@@ -143,18 +125,30 @@ def main():
         tables.add(table_name)
         table_column_pairs.add(meta_result)
 
-
+    print("Running Check 'Count on Tables'")
     for table in tables:
         count_table_query = count_check(table)
         cur.execute(count_table_query)
         conn.commit()
         count = cur.fetchone()[0]
-        print(f"{count_table_query}: {count}")
+        print(f"  {count_table_query} -> {count}")
         if count == 0:
-            print(f"{table} have no records!", file=sys.stderr)
+            print(f"    {table} have no records!", file=sys.stderr)
 
+    print("Running Check 'Null on Columns'")
     for table_colum_pair in table_column_pairs:
-        pass
+        table_name, column_name = table_colum_pair
+        null_check_query = null_check(table_name, column_name)
+        print(null_check_query)
+        cur.execute(null_check_query)
+        conn.commit()
+        null_count, non_null_count = cur.fetchone()
+        print(f"  {table_name}.{column_name} -> null: {null_count}, non_null: {non_null_count}")
+        total = null_count + non_null_count
+        # more than 20% null is bad data quality
+        if null_count * 0.2 > total:
+            print(f"    {table_name}.{column_name} failed null test!", file=sys.stderr)
+
     conn.close()
 
 
