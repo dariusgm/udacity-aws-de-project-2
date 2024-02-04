@@ -1,8 +1,11 @@
 # Shared function that are used for all tables
+import dataclasses
 import sys
-from typing import List
+from typing import List, Tuple, Set, Any
 import configparser
 import psycopg2
+from psycopg2 import errors, OperationalError
+
 
 def fetch_meta_data() -> str:
     """
@@ -38,67 +41,56 @@ def null_check(table: str, column: str):
     """
 
 
-def duplicate_check(table: str, columns: List[str]) -> str:
+def get_table_information(cur, conn) -> tuple[set[str], set[tuple[set[str, str]]]]:
     """
-    :param table: The table to check
-    :param columns: The columns that can indicate the duplicates.
-    :return: Ready to use query
+    Return the general table and column information.
+    This prevents hard coding the table / columns
+    :param cur: Database Cursor
+    :param conn: Database connection
+    :return: a tuple
+     * first element is the table name
+     * second element it a tuple with table, column pairs
     """
-
-    return f"""
-    SELECT {",".join(columns)}
-    FROM {table}
-    GROUP BY {",".join(columns)}
-    HAVING COUNT(*) > 1;
-    """
-
-
-def unique_check(table: str, column: str) -> str:
-    """
-
-    :param table: The table to check
-    :param column: The column to check
-    :return: Ready to use query
-    """
-    return f"""
-    SELECT {column}, COUNT(DISTINCT {column}) AS unique_count
-    FROM {table}
-    GROUP BY {column}
-    ORDER BY unique_count DESC;
-    """
+    meta_query = fetch_meta_data()
+    print(meta_query)
+    cur.execute(meta_query)
+    conn.commit()
+    tables = set()
+    table_column_pairs = set()
+    for meta_result in cur.fetchall():
+        table_name, column_name = meta_result
+        tables.add(table_name)
+        table_column_pairs.add(meta_result)
+    return tables, table_column_pairs
 
 
-def outlier_check(table: str, column: str) -> str:
-    """
-
-    :param table:
-    :param column:
-    :return:
-    """
-
-    return f"""
-    SELECT {column}, MAX({column}) AS max_value, MIN({column}) AS min_value,
-    AVG({column}) AS mean, MEDIAN({column}) AS median, STDDEV({column}) AS std_dev
-    FROM {table};
-    """
+def run_count_check(tables, cur, conn, report_writer):
+    print("Running Check 'Count on Tables'")
+    report_writer.write(f"# Count Check\n")
+    report_writer.write(f"|Table|Count|Passed|\n")
+    report_writer.write(f"|-----|-----|------|\n")
+    for table in tables:
+        count_table_query = count_check(table)
+        cur.execute(count_table_query)
+        conn.commit()
+        count = cur.fetchone()[0]
+        report_writer.write(f"|{table}|{count}|{count != 0}|\n")
 
 
-def distribution_check(table: str, column: str) -> str:
-    """
-    :param table:
-    :param column:
-    :return:
-    """
-
-    return f"""
-    SELECT {column}, COUNT(*) AS frequency
-    FROM {table}
-    GROUP BY {column}
-    ORDER BY frequency DESC;
-    """
-
-
-
+def run_null_check(table_column_pairs, cur, conn, report_writer):
+    print("Running Check 'Null on Columns'")
+    report_writer.write(f"# Null Check\n")
+    report_writer.write(f"|Table|Column|Null|Non-Null|Passed|\n")
+    report_writer.write(f"|-----|------|----|--------|------|\n")
+    for table_colum_pair in table_column_pairs:
+        table_name, column_name = table_colum_pair
+        null_check_query = null_check(table_name, column_name)
+        cur.execute(null_check_query)
+        conn.commit()
+        null_count, non_null_count = cur.fetchone()
+        total = null_count + non_null_count
+        # more than 20% null is bad data quality
+        report_writer.write(f"|{table_name}|{column_name}|{null_count}|{non_null_count}|{null_count * 0.2 < total}|\n")
 
 
 def main():
@@ -113,41 +105,12 @@ def main():
 
     conn = psycopg2.connect(f"host={host} dbname={db_name} user={db_user} password={db_password} port={db_port}")
     cur = conn.cursor()
+    tables, table_column_pairs = get_table_information(cur, conn)
 
-    meta_query = fetch_meta_data()
-    print(meta_query)
-    cur.execute(meta_query)
-    conn.commit()
-    tables = set()
-    table_column_pairs = set()
-    for meta_result in cur.fetchall():
-        table_name, column_name = meta_result
-        tables.add(table_name)
-        table_column_pairs.add(meta_result)
-
-    print("Running Check 'Count on Tables'")
-    for table in tables:
-        count_table_query = count_check(table)
-        cur.execute(count_table_query)
-        conn.commit()
-        count = cur.fetchone()[0]
-        print(f"  {count_table_query} -> {count}")
-        if count == 0:
-            print(f"    {table} have no records!", file=sys.stderr)
-
-    print("Running Check 'Null on Columns'")
-    for table_colum_pair in table_column_pairs:
-        table_name, column_name = table_colum_pair
-        null_check_query = null_check(table_name, column_name)
-        print(null_check_query)
-        cur.execute(null_check_query)
-        conn.commit()
-        null_count, non_null_count = cur.fetchone()
-        print(f"  {table_name}.{column_name} -> null: {null_count}, non_null: {non_null_count}")
-        total = null_count + non_null_count
-        # more than 20% null is bad data quality
-        if null_count * 0.2 > total:
-            print(f"    {table_name}.{column_name} failed null test!", file=sys.stderr)
+    with open("data-quality-report.md", 'wt') as report_writer:
+        report_writer.write("# Data Quality Report\n")
+        run_count_check(tables, cur, conn, report_writer)
+        run_null_check(table_column_pairs, cur, conn, report_writer)
 
     conn.close()
 
