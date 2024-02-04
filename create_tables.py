@@ -4,6 +4,12 @@ from sql_queries import create_table_queries, drop_table_queries
 
 
 def drop_tables(cur, conn):
+    """
+    Executes the 'drop table' sql statements.
+    :param cur: the database cursor
+    :param conn: the database connection
+    :returns: None
+    """
     for query in drop_table_queries:
         print(query)
         cur.execute(query)
@@ -11,6 +17,12 @@ def drop_tables(cur, conn):
 
 
 def create_tables(cur, conn):
+    """
+    Executes the 'create table' sql statements.
+    :param cur: the database cursor
+    :param conn: the database connection
+    :returns: None
+    """
     for query in create_table_queries:
         print(query)
         cur.execute(query)

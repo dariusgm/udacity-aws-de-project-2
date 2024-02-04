@@ -1,5 +1,5 @@
 # This script creates the Redshift Cluster if none is running
-# the code is the original from udacity
+# the code is the original from udacity with some slight additions.
 import random
 import string
 import time
@@ -29,6 +29,11 @@ def get_random_string(length: int = 8) -> str:
 
 
 def get_my_ip() -> str:
+    """
+    Get current public ip address.
+    This ip will be allowed as inbound traffic to the redshift instance.
+    :return: current public ip.
+    """
     return subprocess.check_output("curl -k -L -s ipconfig.me", shell=True, encoding='utf8')
 
 

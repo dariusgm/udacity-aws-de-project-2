@@ -1,10 +1,6 @@
-# Shared function that are used for all tables
-import dataclasses
-import sys
-from typing import List, Tuple, Set, Any
 import configparser
+
 import psycopg2
-from psycopg2 import errors, OperationalError
 
 
 def fetch_meta_data() -> str:
@@ -65,6 +61,15 @@ def get_table_information(cur, conn) -> tuple[set[str], set[tuple[set[str, str]]
 
 
 def run_count_check(tables, cur, conn, report_writer):
+    """
+    Perform the 'Count Check' on the provided table.
+    Write the result of the check to `report_writer`.
+    :param tables: The table to run the check on
+    :param cur: The database cursor
+    :param conn: The database connection
+    :param report_writer: The writer object where to write the markdown to
+    :returns: None
+    """
     print("Running Check 'Count on Tables'")
     report_writer.write(f"# Count Check\n")
     report_writer.write(f"|Table|Count|Passed|\n")
@@ -78,6 +83,17 @@ def run_count_check(tables, cur, conn, report_writer):
 
 
 def run_null_check(table_column_pairs, cur, conn, report_writer):
+    """
+    Perform the 'Null Check' on the provided table.
+    Write the result of the check to `report_writer`.
+    :param table_column_pairs: tuple,
+      * where first element is the table name and
+      * second element is the column name
+    :param cur: the database cursor
+    :param conn: the database connection
+    :param report_writer: The writer object where to write the markdown to
+    :returns: None
+    """
     print("Running Check 'Null on Columns'")
     report_writer.write(f"# Null Check\n")
     report_writer.write(f"|Table|Column|Null|Non-Null|Passed|\n")

@@ -113,13 +113,16 @@ CREATE TABLE dim_time (
 """)
 
 # STAGING TABLES
-
+# Note that these statements contain three placeholders, all starting with the dollar sign,
+# that are replaced at runtime.
 staging_events_copy = ("""
 COPY log_data FROM '$events' iam_role '$iam' 
 FORMAT JSON '$event_schema' 
 REGION 'us-west-2';
 """).format()
 
+# Note that these statements contain three placeholders, all starting with the dollar sign,
+# that are replaced at runtime.
 staging_songs_copy = ("""
 COPY song_data FROM '$songs' iam_role '$iam' 
 FORMAT JSON 'auto' 

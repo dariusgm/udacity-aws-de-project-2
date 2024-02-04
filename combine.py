@@ -1,17 +1,22 @@
-log_path = "log_data"
-song_path = "song_data"
-
 import glob
-import os
 import json
+import os
 
 
 def combine_events(base_path):
+    """
+    This combines all log events from the local copy of the udacity s3 bucket
+    and writes it out as one single file.
+
+    This improves the COPY execution on redshift a lot.
+    :param base_path: working directory, where all files are resolved
+    :return: None
+    """
     if not os.path.exists("events.json"):
         result = []
         for file in glob.glob(base_path + "/**/*.json", recursive=True):
             with open(file, 'rt') as log_reader:
-                # extend the payload with the file date for analysis or partiton use
+                # extend the payload with the file date for analysis or partition use
                 file_suffix = file.split(os.sep)[-1]
                 file_date = file_suffix.replace("-events.json", "")
                 event_year, event_month, event_day = file_date.split("-")
@@ -29,6 +34,14 @@ def combine_events(base_path):
 
 
 def combine_songs(base_path):
+    """
+    This combines all song data from the local copy of the udacity s3 bucket
+    and writes it out as one single file.
+
+    This improves the COPY execution on redshift a lot.
+    :param base_path: working directory, where all files are resolved
+    :return: None
+    """
     if not os.path.exists("songs.json"):
         result = []
         for file in glob.glob(base_path + "/**/*.json", recursive=True):
@@ -43,6 +56,8 @@ def combine_songs(base_path):
 
 
 def main():
+    log_path = "log_data"
+    song_path = "song_data"
     combine_events(os.path.join(".", log_path))
     combine_songs(os.path.join(".", song_path))
 
